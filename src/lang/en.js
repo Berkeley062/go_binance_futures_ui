@@ -438,5 +438,8 @@ export default {
     std_dev_multiplier: 'std dev multiplier',
     multiplier: 'multiplier',
     enable: 'enable',
+    fast_period: 'fast period',
+    slow_period: 'slow period',
+    signal_period: 'signal period',
   },
 }

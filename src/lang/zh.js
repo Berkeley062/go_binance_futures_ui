@@ -439,5 +439,8 @@ export default {
     std_dev_multiplier: '带宽',
     multiplier: '多元',
     enable: '启用',
+    fast_period: '快线周期',
+    slow_period: '慢线周期',
+    signal_period: '信号线周期',
   },
 }
