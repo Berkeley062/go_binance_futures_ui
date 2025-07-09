@@ -904,7 +904,17 @@ export default {
     await this.fetchData()
   },
   methods: {
-    // ...原有 methods 保持不变 ...
+    async fetchData() {
+      this.listLoading = true;
+      try {
+        const { data } = await getList();
+        this.list = data;
+      } catch (e) {
+        this.$message({ message: this.$t('table.actionFail'), type: 'error' });
+      } finally {
+        this.listLoading = false;
+      }
+    },
     addMacd() {
       this.technology.macd.push({
         name: '',
