@@ -904,6 +904,19 @@ export default {
     await this.fetchData()
   },
   methods: {
+  async addData(info) {
+    this.dialogLoading = true;
+    try {
+      await addData(info); // 调用 api 的 addData
+      this.$message({ message: this.$t('table.actionSuccess'), type: 'success' });
+      this.dialogFormVisible = false;
+      await this.fetchData();
+    } catch (e) {
+      this.$message({ message: this.$t('table.actionFail'), type: 'error' });
+    } finally {
+      this.dialogLoading = false;
+    }
+  },
     openDialog() {
   this.dialogTitle = this.$t('table.add')
   this.dialogFormVisible = true
