@@ -904,6 +904,42 @@ export default {
     await this.fetchData()
   },
   methods: {
+    openDialog() {
+  this.dialogTitle = this.$t('table.add')
+  this.dialogFormVisible = true
+  this.info = {}
+},
+openTechnologyDialog(row) {
+  this.technologySymbolId = row.id
+  this.dialogTechnologyTitle = `${row.name} ${this.$t('trade.technology')}`
+  if (row.technology) {
+    try {
+      this.technology = {
+        ...JSON.parse(JSON.stringify(this.technology)),
+        ...JSON.parse(row.technology),
+      }
+    } catch {
+      this.technology = JSON.parse(JSON.stringify(this.technology))
+    }
+  } else {
+    this.technology = JSON.parse(JSON.stringify(this.technology))
+  }
+  this.dialogTechnologyVisible = true
+},
+openStrategyDialog(row) {
+  this.strategySymbolId = row.id
+  this.dialogStrategyTitle = `${row.name} ${this.$t('trade.strategy')}`
+  if (row.strategy) {
+    try {
+      this.strategy = JSON.parse(row.strategy)
+    } catch {
+      this.strategy = []
+    }
+  } else {
+    this.strategy = []
+  }
+  this.dialogStrategyVisible = true
+},
     async fetchData() {
       this.listLoading = true;
       try {
