@@ -90,7 +90,7 @@
         label-width="100px"
         style="width: 400px; margin-left:50px;"
       >
-        <el-form-item :label="$t('trade.name')" prop="name">
+        <el-form-item :label="$t('trade.name')" prop="name" :rules="[{ required: true, message: $t('table.nameRequired'), trigger: 'blur' }]">
           <el-input v-model="info.name" />
         </el-form-item>
       </el-form>
@@ -892,7 +892,6 @@ export default {
         extraKeys: { 'Tab': 'autocomplete' },
         hintOptions: {
           completeSingle: false, // 当只有一个补全项时，不自动补全
-          hint: this.customHint,
         },
       },
       dialogCodeTitle: '',
@@ -905,14 +904,17 @@ export default {
   },
   methods: {
   async addData(info) {
-    this.dialogLoading = true;
     try {
+      await this.$refs.dataForm.validate()
+      this.dialogLoading = true;
       await addData(info); // 调用 api 的 addData
       this.$message({ message: this.$t('table.actionSuccess'), type: 'success' });
       this.dialogFormVisible = false;
       await this.fetchData();
     } catch (e) {
-      this.$message({ message: this.$t('table.actionFail'), type: 'error' });
+      if (e !== false) { // 表单验证失败时 e 为 false
+        this.$message({ message: this.$t('table.actionFail'), type: 'error' });
+      }
     } finally {
       this.dialogLoading = false;
     }
@@ -921,6 +923,9 @@ export default {
   this.dialogTitle = this.$t('table.add')
   this.dialogFormVisible = true
   this.info = {}
+  this.$nextTick(() => {
+    this.$refs.dataForm && this.$refs.dataForm.clearValidate()
+  })
 },
 openTechnologyDialog(row) {
   this.technologySymbolId = row.id
@@ -1004,7 +1009,7 @@ openStrategyDialog(row) {
         this.$message({ message: this.$t('table.actionSuccess'), type: 'success' })
         await this.fetchData()
       } catch (e) {
-        this.$message({ message: this.$t('table.actionFail'), type: 'success' })
+        this.$message({ message: this.$t('table.actionFail'), type: 'error' })
       }
       // this.dialogTechnologyVisible = false
     },
@@ -1014,7 +1019,7 @@ openStrategyDialog(row) {
         this.$message({ message: this.$t('table.actionSuccess'), type: 'success' })
         await this.fetchData()
       } catch (e) {
-        this.$message({ message: this.$t('table.actionFail'), type: 'success' })
+        this.$message({ message: this.$t('table.actionFail'), type: 'error' })
       }
       // this.dialogStrategyVisible = false
     },
@@ -1119,6 +1124,76 @@ openStrategyDialog(row) {
     },
     delStrategy(scope) {
       this.strategy = this.strategy.filter((item, index) => index !== scope.$index)
+    },
+    fullCodeScreenChange(row, index) {
+      this.strategyIndex = index
+      this.code = row.code
+      this.dialogCodeTitle = `${row.name} ${this.$t('strategy.code')}`
+      this.dialogCodeVisible = true
+    },
+    onCmReady(cm) {
+      this.cm = cm
+      // 设置自定义提示功能
+      cm.on('keyup', (cm, event) => {
+        if (!cm.state.completionActive && event.keyCode !== 13 && event.keyCode !== 27) {
+          CodeMirror.commands.autocomplete(cm, null, { completeSingle: false })
+        }
+      })
+    },
+    onCmFocus(cm) {
+      // 处理焦点事件
+    },
+    onCmCodeChange(newCode) {
+      this.code = newCode
+      if (this.strategyIndex !== undefined) {
+        this.strategy[this.strategyIndex].code = newCode
+      }
+    },
+    codeScreenClose() {
+      this.strategyIndex = undefined
+      this.code = ''
+    },
+    customHint(cm) {
+      const cursor = cm.getCursor()
+      const token = cm.getTokenAt(cursor)
+      const line = cm.getLine(cursor.line)
+      
+      const list = [
+        'price', 'volume', 'open', 'high', 'low', 'close',
+        'ma', 'ema', 'rsi', 'kc', 'boll', 'atr', 'macd',
+        'if', 'else', 'for', 'while', 'return', 'true', 'false',
+        'buy', 'sell', 'close_position'
+      ]
+      
+      return {
+        list: list.filter(item => item.toLowerCase().includes(token.string.toLowerCase())),
+        from: CodeMirror.Pos(cursor.line, token.start),
+        to: CodeMirror.Pos(cursor.line, token.end)
+      }
+    },
+    async testStrategyRule() {
+      try {
+        await testStrategyRule({ code: this.code })
+        this.$message({ message: this.$t('table.actionSuccess'), type: 'success' })
+      } catch (e) {
+        this.$message({ message: this.$t('table.actionFail'), type: 'error' })
+      }
+    },
+    async del(row) {
+      try {
+        await this.$confirm(this.$t('table.confirmDelete'), this.$t('table.tip'), {
+          confirmButtonText: this.$t('table.confirm'),
+          cancelButtonText: this.$t('table.cancel'),
+          type: 'warning'
+        })
+        await delData(row.id)
+        this.$message({ message: this.$t('table.deleteSuccess'), type: 'success' })
+        await this.fetchData()
+      } catch (e) {
+        if (e !== 'cancel') {
+          this.$message({ message: this.$t('table.deleteFail'), type: 'error' })
+        }
+      }
     },
   },
 }
