@@ -930,27 +930,30 @@ export default {
 openTechnologyDialog(row) {
   this.technologySymbolId = row.id
   this.dialogTechnologyTitle = `${row.name} ${this.$t('trade.technology')}`
-  if (row.technology) {
+  if (row.technology && row.technology.trim() !== '') {
     try {
+      const parsedTechnology = JSON.parse(row.technology)
       this.technology = {
-        ...JSON.parse(JSON.stringify(this.technology)),
-        ...JSON.parse(row.technology),
+        ...JSON.parse(JSON.stringify(initTechnology)),
+        ...parsedTechnology,
       }
-    } catch {
-      this.technology = JSON.parse(JSON.stringify(this.technology))
+    } catch (error) {
+      console.warn('解析技术指标数据失败:', error)
+      this.technology = JSON.parse(JSON.stringify(initTechnology))
     }
   } else {
-    this.technology = JSON.parse(JSON.stringify(this.technology))
+    this.technology = JSON.parse(JSON.stringify(initTechnology))
   }
   this.dialogTechnologyVisible = true
 },
 openStrategyDialog(row) {
   this.strategySymbolId = row.id
   this.dialogStrategyTitle = `${row.name} ${this.$t('trade.strategy')}`
-  if (row.strategy) {
+  if (row.strategy && row.strategy.trim() !== '') {
     try {
       this.strategy = JSON.parse(row.strategy)
-    } catch {
+    } catch (error) {
+      console.warn('解析策略数据失败:', error)
       this.strategy = []
     }
   } else {
@@ -962,9 +965,12 @@ openStrategyDialog(row) {
       this.listLoading = true;
       try {
         const { data } = await getList();
-        this.list = data;
+        this.list = data || [];
+        console.log('获取策略模板列表成功:', this.list);
       } catch (e) {
+        console.error('获取策略模板列表失败:', e);
         this.$message({ message: this.$t('table.actionFail'), type: 'error' });
+        this.list = [];
       } finally {
         this.listLoading = false;
       }
@@ -984,44 +990,55 @@ openStrategyDialog(row) {
     },
     async confirmTechnology() {
       try {
+        // 数据验证和转换
         Object.keys(this.technology).forEach(key => {
-          this.technology[key].forEach(item => {
-            if (item.period) {
-              item.period = Number(item.period)
-            }
-            if (item.multiplier) {
-              item.multiplier = Number(item.multiplier)
-            }
-            if (item.std_dev_multiplier) {
-              item.std_dev_multiplier = Number(item.std_dev_multiplier)
-            }
-          })
+          if (Array.isArray(this.technology[key])) {
+            this.technology[key].forEach(item => {
+              if (item.period) {
+                item.period = Number(item.period) || 0
+              }
+              if (item.multiplier) {
+                item.multiplier = Number(item.multiplier) || 0
+              }
+              if (item.std_dev_multiplier) {
+                item.std_dev_multiplier = Number(item.std_dev_multiplier) || 0
+              }
+              if (item.fast_period) {
+                item.fast_period = Number(item.fast_period) || 0
+              }
+              if (item.slow_period) {
+                item.slow_period = Number(item.slow_period) || 0
+              }
+              if (item.signal_period) {
+                item.signal_period = Number(item.signal_period) || 0
+              }
+            })
+          }
         })
-        // ==== 新增 macd 参数数字化 ====
-        if (this.technology.macd && Array.isArray(this.technology.macd)) {
-          this.technology.macd.forEach(item => {
-            item.fast_period = Number(item.fast_period)
-            item.slow_period = Number(item.slow_period)
-            item.signal_period = Number(item.signal_period)
-          })
-        }
-        await editData(this.technologySymbolId, { technology: JSON.stringify(this.technology) })
+        
+        const technologyData = JSON.stringify(this.technology)
+        console.log('保存技术指标数据:', technologyData)
+        
+        await editData(this.technologySymbolId, { technology: technologyData })
         this.$message({ message: this.$t('table.actionSuccess'), type: 'success' })
         await this.fetchData()
       } catch (e) {
+        console.error('保存技术指标失败:', e)
         this.$message({ message: this.$t('table.actionFail'), type: 'error' })
       }
-      // this.dialogTechnologyVisible = false
     },
     async confirmStrategy() {
       try {
-        await editData(this.strategySymbolId, { strategy: JSON.stringify(this.strategy) })
+        const strategyData = JSON.stringify(this.strategy)
+        console.log('保存策略数据:', strategyData)
+        
+        await editData(this.strategySymbolId, { strategy: strategyData })
         this.$message({ message: this.$t('table.actionSuccess'), type: 'success' })
         await this.fetchData()
       } catch (e) {
+        console.error('保存策略失败:', e)
         this.$message({ message: this.$t('table.actionFail'), type: 'error' })
       }
-      // this.dialogStrategyVisible = false
     },
     addMa() {
       this.technology.ma = [
@@ -1173,9 +1190,26 @@ openStrategyDialog(row) {
     },
     async testStrategyRule() {
       try {
-        await testStrategyRule({ code: this.code })
-        this.$message({ message: this.$t('table.actionSuccess'), type: 'success' })
+        // 需要提供symbol参数，这里使用当前策略模板的ID作为symbol
+        const symbol = this.strategySymbolId || 'default'
+        const res = await testStrategyRule(symbol, { code: this.code })
+        
+        if (res.code === 200) {
+          // 检查返回结果中的pass字段
+          const result = res?.data?.pass
+          if (typeof result === 'boolean') {
+            const message = result ? '策略验证通过' : '策略验证失败'
+            const type = result ? 'success' : 'warning'
+            this.$message({ message: message, type: type })
+          } else {
+            // 如果没有pass字段，显示原始结果
+            this.$message({ message: `验证结果: ${JSON.stringify(res.data)}`, type: 'success' })
+          }
+        } else {
+          this.$message({ message: `验证失败: ${res.message || '未知错误'}`, type: 'error' })
+        }
       } catch (e) {
+        console.error('策略验证失败:', e)
         this.$message({ message: this.$t('table.actionFail'), type: 'error' })
       }
     },
